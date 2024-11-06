@@ -1,0 +1,96 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - dev
+  pull_request:
+    branches:
+      - dev
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    services:
+      database:
+        image: mariadb:11.6.1-ubi9-rc
+        ports:
+          - 3306:3306
+        env:
+          MYSQL_ROOT_PASSWORD: tpa_root_password
+          MYSQL_DATABASE: tpa
+          MYSQL_USER: tpa_user
+          MYSQL_PASSWORD: tpa_user_password
+        options: >-
+          --health-cmd="mariadb-admin ping --silent"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=3
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.3"
+
+      - name: Install MariaDB Client
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y mariadb-client
+
+      - name: Install dependencies
+        working-directory: app/public
+        run: composer install --prefer-dist --no-progress --no-suggest
+
+      - name: Wait for MySQL to be ready
+        run: |
+          until mysql -h"127.0.0.1" -u"tpa_user" -p"tpa_user_password" -e "SELECT 1"; do
+            echo "Waiting for database connection..."
+            sleep 5
+          done
+
+      - name: Run database migrations
+        working-directory: app/public
+        env:
+          DB_CONNECTION: testing
+          DB_HOST: 127.0.0.1
+          DB_PORT: 3306
+          DB_DATABASE: tpa
+          DB_USERNAME: tpa_user
+          DB_PASSWORD: tpa_user_password
+        run: vendor/bin/phinx migrate -e testing
+
+      - name: Run Seeder
+        working-directory: app/public
+        run: vendor/bin/phinx seed:run -e testing
+
+      - name: Create .env directory
+        working-directory: app
+        run: mkdir -p .env
+
+      - name: Create .env
+        working-directory: app/.env/
+        run: |
+          echo "DB_HOST=127.0.0.1" >> .env
+          echo "DB_USERNAME=tpa_user" >> .env
+          echo "DB_PASSWORD=tpa_user_password" >> .env
+          echo "DB_NAME=tpa" >> .env
+          echo "JWT_SECRET=ZL1RA8lM67Y0Ae5cEuXsqWwBOAfvUzMh" >> .env
+          echo "DEVELOPMENT_MODE=development" >> .env
+          echo "PYHL_TRANSACTION_RECON_ENDPOINT=https://api-merchant.payhalal.my/single_transaction_reconcile2.php" >> .env
+
+      - name: Run tests
+        working-directory: app/public
+        run: vendor/bin/phpunit tests
+
+      - name: Run PHPStan
+        working-directory: app/public
+        run: vendor/bin/phpstan analyse src
+
+      - name: Run PHP-CS-Fixer
+        working-directory: app/public
+        run: composer cs-fix src --dry-run --diff --verbose || true

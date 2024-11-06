@@ -1,0 +1,60 @@
+{
+  "name": "souqafintech/tpa",
+  "description": "For TPAs",
+  "type": "project",
+  "license": "proprietary",
+  "autoload": {
+    "psr-4": {
+      "App\\Contracts\\": "src/Contracts",
+      "App\\Concrete\\": "src/Concrete",
+      "App\\Http\\": "src/Http",
+      "App\\Models\\": "src/Models",
+      "App\\Enums\\": "src/Enums",
+      "App\\Factories\\": "src/Factories",
+      "App\\Exceptions\\": "src/Exceptions",
+      "App\\Repositories\\": "src/Repositories",
+      "App\\Services\\": "src/Services",
+      "App\\DTO\\": "src/DTO",
+      "App\\Views\\": "src/Views",
+      "App\\Tests\\": "tests"
+    }
+  },
+  "authors": [
+    {
+      "name": "NateNateNate",
+      "email": "nate@payhalal.my"
+    },
+    {
+      "name": "Irsyad",
+      "email": "irsyad@payhalal.my"
+    },
+    {
+      "name": "Syaukani",
+      "email": "syaukani@payhalal.my"
+    }
+  ],
+  "require-dev": {
+    "phpstan/phpstan": "^1.12",
+    "phpunit/phpunit": "^11.3",
+    "squizlabs/php_codesniffer": "^3.10",
+    "mockery/mockery": "^1.6"
+  },
+  "require": {
+    "robmorgan/phinx": "^0.16.0",
+    "vlucas/phpdotenv": "^5.6",
+    "php-di/php-di": "^7.0",
+    "doctrine/dbal": "^4.0",
+    "firebase/php-jwt": "^6.10",
+    "monolog/monolog": "^3.7",
+    "guzzlehttp/guzzle": "^7.9",
+    "bramus/router": "^1.6",
+    "ramsey/uuid": "^4.7",
+    "symfony/http-foundation": "^7.1"
+  },
+  "scripts": {
+    "cs-check": "phpcs --standard=PSR12 --ignore=vendor/*,db/* .",
+    "cs-fix": "phpcbf --standard=PSR12 --ignore=vendor/*,db/* .",
+    "phpstan": "phpstan analyse --level=max",
+    "phpunit": "phpunit --colors=always --exclude-group vendor"
+  }
+}

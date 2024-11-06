@@ -1,0 +1,508 @@
+openapi: 3.0.0
+info:
+  title: TPA Payment API
+  version: 1.0.0
+servers:
+  - url: 'https://tpa.payhalal.my'
+tags:
+  - name: auth
+    description: Authentication services
+  - name: acquiring
+    description: Transaction processing services
+  - name: acquiring_uat
+    description: Transaction processing services
+paths:
+  /auth:
+    parameters:
+      - $ref: '#/components/parameters/XVersionHeader'
+    post:
+      summary: Generate an authentication token
+      operationId: createAuthToken
+      tags:
+        - auth
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                app_id:
+                  type: string
+                  example: asdIUUg123u&56
+                app_secret:
+                  type: string
+                  example: agfgaasdIUUg123u&56dh
+      parameters:
+        - in: header
+          name: app_id
+          required: true
+          schema:
+            type: string
+          description: Application Key provided by the system.
+        - in: header
+          name: app_secret
+          required: true
+          schema:
+            type: string
+          description: Secret key associated with the application ID.
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token:
+                    type: string
+                    description: Authentication token for future requests.
+                    example: TKKANYYIO1233nIBWb-=
+                  expires_at:
+                    type: string
+                    description: Expiration timestamp of the authentication token.
+                    example: 1728378621
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: Request parameter missing
+                    description: The request parameters are invalid or incomplete.
+        '401':
+          description: Unauthorized Access
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: Invalid App Keys
+                    description: The provided app_id or app_secret is invalid.
+        '403':
+          description: Forbidden Access
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: Forbidden Access
+                    description: >-
+                      Access to the API is restricted, possibly due to a
+                      suspended application or user account.
+  '/acquiring/{channel}':
+    parameters:
+      - $ref: '#/components/parameters/XVersionHeader'
+    post:
+      summary: Initiate a payment request and obtain a redirect link
+      operationId: createPaymentRequest
+      security:
+        - bearerAuth: []
+      tags:
+        - acquiring
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                amount:
+                  type: number
+                  format: float
+                  example: 28.5
+                currency:
+                  type: string
+                  example: MYR
+                product_description:
+                  type: string
+                  example: Book of Joy & Resistance
+                order_id:
+                  type: string
+                  example: JNR-BK266-PUB
+                customer_name:
+                  type: string
+                  example: Feysal Khan
+                customer_email:
+                  type: string
+                  format: email
+                  example: feysalkhan@joyexample.com
+                customer_phone:
+                  type: string
+                  example: 012-36666277
+      parameters:
+        - in: path
+          name: channel
+          required: true
+          schema:
+            type: string
+          description: Payment channel.
+      responses:
+        '200':
+          description: Payment request successfully created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  order_id:
+                    type: string
+                    description: Unique transaction identifier.
+                    example: BookGa_91887
+                  amount:
+                    type: number
+                    format: float
+                    description: Transaction amount.
+                    example: 20
+                  currency:
+                    type: string
+                    description: 'Currency code (e.g., "MYR").'
+                    example: MYR
+                  status:
+                    type: string
+                    description: 'Payment status (e.g., "pending", "succeeded").'
+                    example: pending
+                  created_at:
+                    type: string
+                    format: date-time
+                    description: Time of transaction creation.
+                    example: 1728380530
+                  redirect_url:
+                    type: string
+                    format: url
+                    description: URL for redirection to the payment gateway.
+                    example: 'https://tpa.payhalal.my/acquiring/redirect/'
+              examples:
+                example1:
+                  summary: Valid example
+                  value:
+                    order_id: BookGa_91887
+                    amount: 28.5
+                    currency: MYR
+                    created_at: 1728380530
+                example2:
+                  summary: Missing required fields
+                  value:
+                    customer_name: Jane Doe
+                    customer_email: jane.doe@example.com
+                example3:
+                  summary: Invalid email format
+                  value:
+                    customer_name: Bob Smith
+                    customer_email: invalid-email
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    description: Error details for invalid input parameters.
+                    example: Invalid input parameters.
+        '401':
+          $ref: '#/components/responses/InvalidAuthTokenError'
+  '/acquiring/redirect/{redirect_id}':
+    parameters:
+      - $ref: '#/components/parameters/XVersionHeader'
+    get:
+      summary: Redirect to the payment gateway
+      operationId: redirectionToChannelPaymentPage
+      tags:
+        - acquiring
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: redirect_id
+          required: true
+          schema:
+            type: string
+          description: Unique redirect identifier.
+      responses:
+        '302':
+          description: Redirection to the payment gateway
+          headers:
+            Location:
+              description: URL to the payment gateway
+              schema:
+                type: string
+                example: 'https://new-url.example.com'
+        '401':
+          $ref: '#/components/responses/InvalidAuthTokenError'
+        '404':
+          description: Invalid or expired redirection URL
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    description: The provided redirection URL is invalid or has expired.
+                    example: Redirection URL invalid or expired.
+  '/acquiring/{transaction_id}':
+    parameters:
+      - $ref: '#/components/parameters/XVersionHeader'
+    get:
+      summary: Retrieve transaction details by ID
+      operationId: reconcileTransaction
+      security:
+        - bearerAuth: []
+      tags:
+        - acquiring
+      parameters:
+        - in: path
+          name: transaction_id
+          required: true
+          schema:
+            type: string
+          description: Unique transaction identifier.
+        - in: header
+          name: hash
+          required: true
+          schema:
+            type: string
+          description: Security hash for verification.
+      responses:
+        '200':
+          description: Transaction successfully retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  source:
+                    type: string
+                    description: Payment source.
+                  amount:
+                    type: integer
+                    description: Payment amount.
+                  currency:
+                    type: string
+                    description: Currency code.
+                  status:
+                    type: string
+                    description: 'Payment status (e.g., "succeeded").'
+                  transaction_id:
+                    type: string
+                    description: Unique transaction ID.
+                  date_created:
+                    type: string
+                    format: date-time
+                    description: Transaction creation timestamp.
+                  mode:
+                    type: string
+                    description: 'Payment mode (e.g., "LIVE").'
+                  customer_name:
+                    type: string
+                    description: Customer's full name.
+                  customer_email:
+                    type: string
+                    description: Customer's email address.
+                  customer_phone:
+                    type: string
+                    description: Customer's phone number.
+                  customer_order_id:
+                    type: string
+                    description: Customer's order ID.
+                  product_description:
+                    type: string
+                    description: Description of the purchased product or service.
+        '401':
+          $ref: '#/components/responses/InvalidAuthTokenError'
+        '404':
+          description: Transaction not found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    description: Transaction was not found in the system.
+                    example: Transaction not found.
+  /acquiring:
+    parameters:
+      - $ref: '#/components/parameters/XVersionHeader'
+    post:
+      summary: Initiate a payment request and obtain a redirect link
+      operationId: createPaymentRequestUat
+      security:
+        - bearerAuth: []
+      tags:
+        - acquiring_uat
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                amount:
+                  type: number
+                  format: float
+                  example: 28.5
+                currency:
+                  type: string
+                  example: MYR
+                product_description:
+                  type: string
+                  example: Book of Joy & Resistance
+                order_id:
+                  type: string
+                  example: JNR-BK266-PUB
+                customer_name:
+                  type: string
+                  example: Feysal Khan
+                customer_email:
+                  type: string
+                  format: email
+                  example: feysalkhan@joyexample.com
+                customer_phone:
+                  type: string
+                  example: 012-36666277
+                status:
+                  type: string
+                  example : SUCCESS
+      responses:
+        '200':
+          description: Payment request successfully created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  order_id:
+                    type: string
+                    description: Unique transaction identifier.
+                    example: BookGa_91887
+                  amount:
+                    type: number
+                    format: float
+                    description: Transaction amount.
+                    example: 20
+                  currency:
+                    type: string
+                    description: 'Currency code (e.g., "MYR").'
+                    example: MYR
+                  status:
+                    type: string
+                    description: 'Payment status (e.g., "pending", "succeeded").'
+                    example: pending
+                  created_at:
+                    type: string
+                    format: date-time
+                    description: Time of transaction creation.
+                    example: 1728380530
+                  redirect_url:
+                    type: string
+                    format: url
+                    description: URL for redirection to the payment gateway.
+                    example: 'https://tpa.payhalal.my/acquiring/redirect/'
+              examples:
+                example1:
+                  summary: Valid example
+                  value:
+                    order_id: BookGa_91887
+                    amount: 28.5
+                    currency: MYR
+                    created_at: 1728380530
+                example2:
+                  summary: Missing required fields
+                  value:
+                    customer_name: Jane Doe
+                    customer_email: jane.doe@example.com
+                example3:
+                  summary: Invalid email format
+                  value:
+                    customer_name: Bob Smith
+                    customer_email: invalid-email
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    description: Error details for invalid input parameters.
+                    example: Invalid input parameters.
+        '401':
+          $ref: '#/components/responses/InvalidAuthTokenError'
+      
+  '/acquiring/redirect/uat/{redirect_id}':
+    parameters:
+      - $ref: '#/components/parameters/XVersionHeader'
+    get:
+      summary: Redirect to the payment gateway
+      operationId: redirectionToChannelPaymentPageUat
+      tags:
+        - acquiring_uat
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: redirect_id
+          required: true
+          schema:
+            type: string
+          description: Unique redirect identifier.
+      responses:
+        '302':
+          description: Redirection to the payment gateway
+          headers:
+            Location:
+              description: URL to the payment gateway
+              schema:
+                type: string
+                example: 'https://new-url.example.com'
+        '401':
+          $ref: '#/components/responses/InvalidAuthTokenError'
+        '404':
+          description: Invalid or expired redirection URL
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    description: The provided redirection URL is invalid or has expired.
+                    example: Redirection URL invalid or expired.
+components:
+  parameters:
+    XVersionHeader:
+      name: X-Version
+      in: header
+      description: API version number.
+      schema:
+        type: string
+      required: true
+      example: '1.0'
+  responses:
+    InvalidAuthTokenError:
+      description: Invalid or missing bearer token.
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
+                example: Invalid or missing X-Bearer-Token
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+ 

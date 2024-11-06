@@ -1,0 +1,9 @@
+POST https://natenatenate.com/auth
+Content-Type: application/json
+Accept: application/json
+InternalVersion: v1
+
+{
+  "email": "nate@natenatenate.com",
+  "password": "password"
+}
