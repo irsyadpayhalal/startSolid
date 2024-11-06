@@ -1,6 +1,6 @@
-# TPA Project
+# Start Project
 
-Payhalal API aggregator
+Bootstrapping project
 
 ## Setup
 
